@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>농사대박 - 영농 컨트롤러</title>
+    <style>
+        /* 기본 리셋 및 모바일 컨테이너 */
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { 
+            background-color: #e9ecef; 
+            display: flex; 
+            justify-content: center; 
+            font-family: -apple-system, BlinkMacSystemFont, "Malgun Gothic", "맑은 고딕", sans-serif; 
+        }
+        .app-container {
+            width: 100%;
+            max-width: 400px;
+            background-color: #ffffff;
+            min-height: 820px;
+            position: relative;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        /* 뷰 전환용 클래스 */
+        .view-section { display: none; padding-bottom: 80px; height: calc(100vh - 60px); overflow-y: auto; }
+        .view-section.active-view { display: block; }
+        /* 스크롤바 숨기기 */
+        .view-section::-webkit-scrollbar { display: none; }
+
+        /* 상단 헤더 */
+        .top-header {
+            background-color: #1a1b1e;
+            color: #ffffff;
+            padding: 16px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .app-title { font-size: 20px; font-weight: 800; letter-spacing: -0.5px; }
+        .location { font-size: 14px; font-weight: 500; color: #ced4da; display: flex; align-items: center; gap: 4px; }
+
+        /* 작물 선택 탭 */
+        .crop-tabs {
+            display: flex;
+            border-bottom: 1px solid #f1f3f5;
+            background-color: #ffffff;
+        }
+        .tab-item {
+            flex: 1;
+            text-align: center;
+            padding: 16px 0 14px;
+            font-size: 14px;
+            font-weight: 700;
+            color: #adb5bd;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            border-bottom: 3px solid transparent;
+        }
+        .tab-item.active {
+            color: #212529;
+            border-bottom: 3px solid #212529;
+        }
+
+        /* 홈 탭 전용: 기상 정보 보드 */
+        .weather-hero {
+            padding: 30px 20px 20px;
+            text-align: center;
+        }
+        .temp-display {
+            font-size: 56px;
+            font-weight: 900;
+            color: #212529;
+            line-height: 1;
+            letter-spacing: -2px;
+            margin-bottom: 8px;
+        }
+        .weather-condition {
+            font-size: 18px;
+            font-weight: 700;
+            color: #495057;
+            margin-bottom: 25px;
+        }
+        .weather-condition span { color: #d32f2f; }
+
+        /* 단일 행동 지침 카드 */
+        .action-card {
+            margin: 0 20px 30px;
+            background-color: #fff5f5;
+            border: 2px solid #fa5252;
+            border-radius: 12px;
+            padding: 24px 20px;
+            box-shadow: 0 6px 16px rgba(250, 82, 82, 0.15);
+        }
+        .alert-badge {
+            display: inline-block;
+            background-color: #fa5252;
+            color: #ffffff;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 15px;
+            font-weight: 800;
+            margin-bottom: 12px;
+            letter-spacing: 0.5px;
+        }
+        .action-command {
+            font-size: 28px;
+            font-weight: 900;
+            color: #212529;
+            line-height: 1.35;
+            word-break: keep-all;
+        }
+
+        /* 오늘의 과제 및 체크박스 동작 CSS 추가 영역 */
+        .todo-section { padding: 0 20px; margin-bottom: 20px;}
+        .section-title {
+            font-size: 16px;
+            font-weight: 800;
+            color: #868e96;
+            margin-bottom: 12px;
+        }
+        .todo-item {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            padding: 18px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            cursor: pointer; /* 클릭 가능함 시각적 표시 */
+        }
+        .checkbox-large {
+            width: 32px;
+            height: 32px;
+            border: 2.5px solid #ced4da;
+            border-radius: 8px;
+            background-color: #ffffff;
+            flex-shrink: 0;
+            position: relative;
+        }
+        .todo-text {
+            font-size: 18px;
+            font-weight: 700;
+            color: #343a40;
+            line-height: 1.4;
+            word-break: keep-all;
+            transition: color 0.2s, text-decoration 0.2s; /* 부드러운 전환 효과 */
+        }
+        
+        /* 체크 활성화 시 스타일 */
+        .checkbox-large.checked {
+            background-color: #495057;
+            border-color: #495057;
+        }
+        .checkbox-large.checked::after {
+            content: '✔';
+            color: #ffffff;
+            font-size: 20px;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+        .todo-text.completed {
+            text-decoration: line-through;
+            color: #adb5bd;
+        }
+
+        /* === 날씨 탭 전용 CSS === */
+        .weather-main-info { text-align: center; padding: 30px 20px 20px; }
+        .weather-main-info .temp { font-size: 64px; font-weight: 800; color: #212529; letter-spacing: -2px; line-height: 1; margin-bottom: 10px; }
+        .weather-main-info .desc { font-size: 18px; font-weight: 700; color: #495057; margin-bottom: 8px; }
+        .weather-main-info .details { font-size: 14px; color: #868e96; font-weight: 600; }
+        
+        .status-grid { display: flex; gap: 8px; padding: 0 20px 20px; }
+        .status-box { flex: 1; background-color: #f8f9fa; border-radius: 10px; padding: 12px 8px; text-align: center; }
+        .status-title { font-size: 12px; color: #868e96; margin-bottom: 4px; font-weight: 600;}
+        .status-value { font-size: 14px; font-weight: 800; }
+        .val-good { color: #3b82f6; }
+        .val-normal { color: #10b981; }
+        .val-warning { color: #f59e0b; }
+
+        .hourly-scroll-container { margin-bottom: 30px; }
+        .hourly-header { padding: 0 20px; font-size: 16px; font-weight: 800; color: #495057; margin-bottom: 12px; }
+        .hourly-scroll { display: flex; overflow-x: auto; padding: 0 20px 10px; gap: 20px; }
+        .hourly-scroll::-webkit-scrollbar { display: none; }
+        .hourly-item { display: flex; flex-direction: column; align-items: center; min-width: 40px; }
+        .hourly-time { font-size: 14px; color: #868e96; font-weight: 600; margin-bottom: 8px; }
+        .hourly-icon { font-size: 24px; margin-bottom: 8px; }
+        .hourly-temp { font-size: 16px; font-weight: 700; color: #212529; }
+
+        .weekly-container { padding: 0 20px; }
+        .weekly-header { font-size: 16px; font-weight: 800; color: #495057; margin-bottom: 12px; }
+        .weekly-row { display: flex; align-items: center; justify-content: space-between; padding: 14px 0; border-bottom: 1px solid #f1f3f5; }
+        .weekly-day { width: 60px; font-size: 16px; font-weight: 700; color: #212529; }
+        .weekly-icons { display: flex; gap: 15px; font-size: 20px; }
+        .weekly-temps { display: flex; gap: 12px; font-size: 16px; font-weight: 700; }
+        .temp-min { color: #3b82f6; }
+        .temp-max { color: #e63946; }
+        .text-red { color: #e63946; }
+
+        /* 하단 내비게이션 바 */
+        .bottom-nav {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            display: flex;
+            background-color: #ffffff;
+            border-top: 1px solid #dee2e6;
+            padding: 12px 0 16px;
+            z-index: 10;
+        }
+        .nav-button {
+            flex: 1;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+        }
+        .nav-icon { font-size: 22px; filter: grayscale(100%); opacity: 0.4; }
+        .nav-label { font-size: 13px; font-weight: 700; color: #adb5bd; }
+        
+        .nav-button.active .nav-icon { filter: grayscale(0%); opacity: 1; }
+        .nav-button.active .nav-label { color: #212529; }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <!-- 상단 헤더 공통 -->
+    <div class="top-header">
+        <div class="app-title">농사대박</div>
+        <div class="location">📍 경북 상주시 모동면</div>
+    </div>
+
+    <!-- 1. 홈(컨트롤러) 화면 -->
+    <div id="view-home" class="view-section active-view">
+        <!-- 작물 탭 -->
+        <div class="crop-tabs">
+            <div class="tab-item" onclick="switchCrop('persimmon', 0)" id="tab-persimmon">
+                <span>곶감</span>
+            </div>
+            <div class="tab-item active" onclick="switchCrop('melon', 1)" id="tab-melon">
+                <span>참외(하우스)</span>
+            </div>
+            <div class="tab-item" onclick="switchCrop('rice', 2)" id="tab-rice">
+                <span>벼</span>
+            </div>
+            <div class="tab-item" style="color:#868e96;">
+                <span>작물추가</span>
+            </div>
+        </div>
+
+        <!-- 기상 정보 보드 -->
+        <div class="weather-hero">
+            <div class="temp-display">24°C</div>
+            <div class="weather-condition">
+                🌧️ 폭우 및 강풍 | <span style="color: #d32f2f;">순간 풍속 18.5m/s</span>
+            </div>
+        </div>
+
+        <!-- 핵심 행동 지침 -->
+        <div class="action-card">
+            <div class="alert-badge" id="action-badge">🚨 14:00 태풍 주의보 발령</div>
+            <div class="action-command" id="action-command">
+                강풍 피해 대비<br>하우스 측창을 즉시<br>밀폐하십시오.
+            </div>
+        </div>
+
+        <!-- 오늘의 과제 (토글 함수 연동) -->
+        <div class="todo-section">
+            <div class="section-title">오늘 마감 권장 과제 (8월 12일)</div>
+            
+            <div class="todo-item" onclick="toggleTodo(this)">
+                <div class="checkbox-large"></div>
+                <div class="todo-text" id="todo-1">내일 비 예보. 18시 전 배수로 오물 제거 완료하기</div>
+            </div>
+            
+            <div class="todo-item" onclick="toggleTodo(this)">
+                <div class="checkbox-large"></div>
+                <div class="todo-text" id="todo-2">하우스 고정끈 및 비닐 찢김 구간 긴급 보수</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 2. 날씨 상세 화면 -->
+    <div id="view-weather" class="view-section">
+        <div class="weather-main-info">
+            <div class="temp">☀️ 36.9°</div>
+            <div class="desc">어제보다 1.1° ↑ / 맑음</div>
+            <div class="details">체감 34.7° • 습도 36% • 북서풍 3.7m/s</div>
+        </div>
+
+        <div class="status-grid">
+            <div class="status-box">
+                <div class="status-title">미세먼지</div>
+                <div class="status-value val-good">좋음</div>
+            </div>
+            <div class="status-box">
+                <div class="status-title">초미세먼지</div>
+                <div class="status-value val-good">좋음</div>
+            </div>
+            <div class="status-box">
+                <div class="status-title">자외선</div>
+                <div class="status-value val-normal">보통</div>
+            </div>
+            <div class="status-box">
+                <div class="status-title">일몰</div>
+                <div class="status-value val-warning">19:29</div>
+            </div>
+        </div>
+
+        <div class="hourly-scroll-container">
+            <div class="hourly-header">시간별 예보</div>
+            <div class="hourly-scroll">
+                <div class="hourly-item">
+                    <div class="hourly-time">17시</div>
+                    <div class="hourly-icon">☀️</div>
+                    <div class="hourly-temp">37°</div>
+                </div>
+                <div class="hourly-item">
+                    <div class="hourly-time">18시</div>
+                    <div class="hourly-icon">☀️</div>
+                    <div class="hourly-temp">36°</div>
+                </div>
+                <div class="hourly-item">
+                    <div class="hourly-time">19시</div>
+                    <div class="hourly-icon">⛅</div>
+                    <div class="hourly-temp">35°</div>
+                </div>
+                <div class="hourly-item">
+                    <div class="hourly-time">20시</div>
+                    <div class="hourly-icon">☁️</div>
+                    <div class="hourly-temp">35°</div>
+                </div>
+                <div class="hourly-item">
+                    <div class="hourly-time">21시</div>
+                    <div class="hourly-icon">☁️</div>
+                    <div class="hourly-temp">34°</div>
+                </div>
+                <div class="hourly-item">
+                    <div class="hourly-time">22시</div>
+                    <div class="hourly-icon">🌙</div>
+                    <div class="hourly-temp">32°</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="weekly-container">
+            <div class="weekly-header">주간 예보</div>
+            <div class="weekly-row">
+                <div class="weekly-day">오늘</div>
+                <div class="weekly-icons">☀️ ☀️</div>
+                <div class="weekly-temps"><span class="temp-min">26°</span> <span class="temp-max">37°</span></div>
+            </div>
+            <div class="weekly-row">
+                <div class="weekly-day text-red">일</div>
+                <div class="weekly-icons">☀️ ☀️</div>
+                <div class="weekly-temps"><span class="temp-min">27°</span> <span class="temp-max">35°</span></div>
+            </div>
+            <div class="weekly-row">
+                <div class="weekly-day">월</div>
+                <div class="weekly-icons">☀️ ☀️</div>
+                <div class="weekly-temps"><span class="temp-min">26°</span> <span class="temp-max">34°</span></div>
+            </div>
+            <div class="weekly-row">
+                <div class="weekly-day">화</div>
+                <div class="weekly-icons">☀️ ⛅</div>
+                <div class="weekly-temps"><span class="temp-min">26°</span> <span class="temp-max">34°</span></div>
+            </div>
+            <div class="weekly-row">
+                <div class="weekly-day">수</div>
+                <div class="weekly-icons">☀️ ☀️</div>
+                <div class="weekly-temps"><span class="temp-min">26°</span> <span class="temp-max">34°</span></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 하단 내비게이션 -->
+    <div class="bottom-nav">
+        <div class="nav-button active" onclick="switchTab('home', 0)">
+            <div class="nav-icon">🏠</div>
+            <div class="nav-label">홈</div>
+        </div>
+        <div class="nav-button" onclick="switchTab('weather', 1)">
+            <div class="nav-icon">☁️</div>
+            <div class="nav-label">날씨</div>
+        </div>
+        <div class="nav-button" onclick="switchTab('settings', 2)">
+            <div class="nav-icon">⚙️</div>
+            <div class="nav-label">설정</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 하단 탭 전환 스크립트
+    function switchTab(targetView, index) {
+        const navButtons = document.querySelectorAll('.nav-button');
+        navButtons.forEach(btn => btn.classList.remove('active'));
+        navButtons[index].classList.add('active');
+
+        const views = document.querySelectorAll('.view-section');
+        views.forEach(view => view.classList.remove('active-view'));
+        
+        if (targetView === 'home') {
+            document.getElementById('view-home').classList.add('active-view');
+        } else if (targetView === 'weather') {
+            document.getElementById('view-weather').classList.add('active-view');
+            document.getElementById('view-weather').scrollTop = 0;
+        }
+    }
+
+    // 작물별 행동 지침 데이터 베이스
+    const cropData = {
+        'persimmon': {
+            actionBadge: '🚨 14:00 태풍 주의보 발령',
+            actionText: '폭우 및 강풍 대비<br>건조장 비가림막을<br>전면 밀폐하십시오.',
+            todo1: '배수로 주변 토사물 및 잡초 제거 완료하기',
+            todo2: '비닐·버팀줄·골조 고정 점검'
+        },
+        'melon': {
+            actionBadge: '🚨 14:00 태풍 주의보 발령',
+            actionText: '강풍 피해 대비<br>하우스 측창을 즉시<br>밀폐하십시오.',
+            todo1: '내일 비 예보. 18시 전 배수로 오물 제거 완료하기',
+            todo2: '하우스 고정끈 및 비닐 찢김 구간 긴급 보수'
+        },
+        'rice': {
+            actionBadge: '🚨 14:00 폭우 주의보 발령',
+            actionText: '논물 넘침 방지를 위해<br>즉시 배수로를<br>개방하십시오.',
+            todo1: '붕괴 위험 논두렁 비닐 피복 및 톤백 적재',
+            todo2: '침수 상습 구역 양수기 사전 배치 및 테스트'
+        }
+    };
+
+    // 체크박스 토글 함수
+    function toggleTodo(element) {
+        const checkbox = element.querySelector('.checkbox-large');
+        const text = element.querySelector('.todo-text');
+        
+        checkbox.classList.toggle('checked');
+        text.classList.toggle('completed');
+    }
+
+    // 상단 작물 탭 클릭 시 내용 변경 스크립트
+    function switchCrop(cropId, index) {
+        // 상단 탭 활성화 상태 변경 (인덱스 0~2까지만 적용)
+        const tabs = document.querySelectorAll('.crop-tabs .tab-item');
+        tabs.forEach((tab, i) => {
+            if (i < 3) tab.classList.remove('active');
+        });
+        tabs[index].classList.add('active');
+
+        // 매칭된 텍스트 데이터 렌더링
+        document.getElementById('action-badge').innerHTML = cropData[cropId].actionBadge;
+        document.getElementById('action-command').innerHTML = cropData[cropId].actionText;
+        document.getElementById('todo-1').innerHTML = cropData[cropId].todo1;
+        document.getElementById('todo-2').innerHTML = cropData[cropId].todo2;
+
+        // 작물 탭 변경 시 체크박스 상태 초기화 로직
+        const todoItems = document.querySelectorAll('.todo-item');
+        todoItems.forEach(item => {
+            item.querySelector('.checkbox-large').classList.remove('checked');
+            item.querySelector('.todo-text').classList.remove('completed');
+        });
+    }
+</script>
+
+</body>
+</html>
