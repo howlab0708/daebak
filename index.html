@@ -1,476 +1,506 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>농사대박 - 영농 컨트롤러</title>
-    <style>
-        /* 기본 리셋 및 모바일 컨테이너 */
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { 
-            background-color: #e9ecef; 
-            display: flex; 
-            justify-content: center; 
-            font-family: -apple-system, BlinkMacSystemFont, "Malgun Gothic", "맑은 고딕", sans-serif; 
-        }
-        .app-container {
-            width: 100%;
-            max-width: 400px;
-            background-color: #ffffff;
-            min-height: 820px;
-            position: relative;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-            overflow: hidden;
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>참외 영농지침 - 오늘 뭐 해야하나요?</title>
+<style>
+  :root {
+    --green: #2e7d32;
+    --green-dark: #1b5e20;
+    --amber: #e65100;
+    --red: #c62828;
+    --blue: #1565c0;
+    --ink: #212121;
+    --sub: #5f6368;
+    --bg: #f5f6f0;
+    --card: #ffffff;
+    --border: #e0e0da;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif;
+    font-size: 18px;
+    line-height: 1.5;
+  }
+  .wrap { max-width: 480px; margin: 0 auto; padding: 20px 16px 60px; }
 
-        /* 뷰 전환용 클래스 */
-        .view-section { display: none; padding-bottom: 80px; height: calc(100vh - 60px); overflow-y: auto; }
-        .view-section.active-view { display: block; }
-        /* 스크롤바 숨기기 */
-        .view-section::-webkit-scrollbar { display: none; }
+  header { text-align: center; padding: 12px 0 20px; }
+  header h1 { font-size: 26px; margin: 0 0 4px; color: var(--green-dark); }
+  header p { margin: 0; color: var(--sub); font-size: 16px; }
 
-        /* 상단 헤더 */
-        .top-header {
-            background-color: #1a1b1e;
-            color: #ffffff;
-            padding: 16px 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .app-title { font-size: 20px; font-weight: 800; letter-spacing: -0.5px; }
-        .location { font-size: 14px; font-weight: 500; color: #ced4da; display: flex; align-items: center; gap: 4px; }
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 18px;
+    margin-bottom: 16px;
+  }
 
-        /* 작물 선택 탭 */
-        .crop-tabs {
-            display: flex;
-            border-bottom: 1px solid #f1f3f5;
-            background-color: #ffffff;
-        }
-        .tab-item {
-            flex: 1;
-            text-align: center;
-            padding: 16px 0 14px;
-            font-size: 14px;
-            font-weight: 700;
-            color: #adb5bd;
-            cursor: pointer;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            border-bottom: 3px solid transparent;
-        }
-        .tab-item.active {
-            color: #212529;
-            border-bottom: 3px solid #212529;
-        }
+  label { display: block; font-weight: 700; margin-bottom: 8px; }
+  select, input[type="date"] {
+    width: 100%;
+    font-size: 18px;
+    padding: 12px;
+    border-radius: 10px;
+    border: 2px solid var(--border);
+    background: #fff;
+    color: var(--ink);
+    margin-bottom: 14px;
+  }
+  select:last-of-type, input:last-of-type { margin-bottom: 0; }
 
-        /* 홈 탭 전용: 기상 정보 보드 */
-        .weather-hero {
-            padding: 30px 20px 20px;
-            text-align: center;
-        }
-        .temp-display {
-            font-size: 56px;
-            font-weight: 900;
-            color: #212529;
-            line-height: 1;
-            letter-spacing: -2px;
-            margin-bottom: 8px;
-        }
-        .weather-condition {
-            font-size: 18px;
-            font-weight: 700;
-            color: #495057;
-            margin-bottom: 25px;
-        }
-        .weather-condition span { color: #d32f2f; }
+  button.primary {
+    width: 100%;
+    font-size: 20px;
+    font-weight: 700;
+    padding: 16px;
+    border-radius: 12px;
+    border: none;
+    background: var(--green);
+    color: #fff;
+    cursor: pointer;
+  }
+  button.primary:active { background: var(--green-dark); }
+  button.retry {
+    margin-top: 12px;
+    font-size: 16px;
+    padding: 10px 16px;
+    border-radius: 10px;
+    border: 2px solid var(--border);
+    background: #fff;
+    color: var(--ink);
+    cursor: pointer;
+  }
 
-        /* 단일 행동 지침 카드 */
-        .action-card {
-            margin: 0 20px 30px;
-            background-color: #fff5f5;
-            border: 2px solid #fa5252;
-            border-radius: 12px;
-            padding: 24px 20px;
-            box-shadow: 0 6px 16px rgba(250, 82, 82, 0.15);
-        }
-        .alert-badge {
-            display: inline-block;
-            background-color: #fa5252;
-            color: #ffffff;
-            padding: 6px 12px;
-            border-radius: 6px;
-            font-size: 15px;
-            font-weight: 800;
-            margin-bottom: 12px;
-            letter-spacing: 0.5px;
-        }
-        .action-command {
-            font-size: 28px;
-            font-weight: 900;
-            color: #212529;
-            line-height: 1.35;
-            word-break: keep-all;
-        }
+  #status { text-align: center; padding: 24px 0; color: var(--sub); font-size: 17px; display: none; }
+  #error { text-align: center; padding: 20px; color: var(--red); display: none; }
 
-        /* 오늘의 과제 및 체크박스 동작 CSS 추가 영역 */
-        .todo-section { padding: 0 20px; margin-bottom: 20px;}
-        .section-title {
-            font-size: 16px;
-            font-weight: 800;
-            color: #868e96;
-            margin-bottom: 12px;
-        }
-        .todo-item {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-            background-color: #f8f9fa;
-            border: 1px solid #e9ecef;
-            padding: 18px;
-            border-radius: 10px;
-            margin-bottom: 10px;
-            cursor: pointer; /* 클릭 가능함 시각적 표시 */
-        }
-        .checkbox-large {
-            width: 32px;
-            height: 32px;
-            border: 2.5px solid #ced4da;
-            border-radius: 8px;
-            background-color: #ffffff;
-            flex-shrink: 0;
-            position: relative;
-        }
-        .todo-text {
-            font-size: 18px;
-            font-weight: 700;
-            color: #343a40;
-            line-height: 1.4;
-            word-break: keep-all;
-            transition: color 0.2s, text-decoration 0.2s; /* 부드러운 전환 효과 */
-        }
-        
-        /* 체크 활성화 시 스타일 */
-        .checkbox-large.checked {
-            background-color: #495057;
-            border-color: #495057;
-        }
-        .checkbox-large.checked::after {
-            content: '✔';
-            color: #ffffff;
-            font-size: 20px;
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-        }
-        .todo-text.completed {
-            text-decoration: line-through;
-            color: #adb5bd;
-        }
+  #result { display: none; }
 
-        /* === 날씨 탭 전용 CSS === */
-        .weather-main-info { text-align: center; padding: 30px 20px 20px; }
-        .weather-main-info .temp { font-size: 64px; font-weight: 800; color: #212529; letter-spacing: -2px; line-height: 1; margin-bottom: 10px; }
-        .weather-main-info .desc { font-size: 18px; font-weight: 700; color: #495057; margin-bottom: 8px; }
-        .weather-main-info .details { font-size: 14px; color: #868e96; font-weight: 600; }
-        
-        .status-grid { display: flex; gap: 8px; padding: 0 20px 20px; }
-        .status-box { flex: 1; background-color: #f8f9fa; border-radius: 10px; padding: 12px 8px; text-align: center; }
-        .status-title { font-size: 12px; color: #868e96; margin-bottom: 4px; font-weight: 600;}
-        .status-value { font-size: 14px; font-weight: 800; }
-        .val-good { color: #3b82f6; }
-        .val-normal { color: #10b981; }
-        .val-warning { color: #f59e0b; }
+  .weather-summary {
+    display: flex; align-items: center; gap: 14px;
+    padding: 4px 4px 14px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 14px;
+  }
+  .weather-summary .emoji { font-size: 44px; }
+  .weather-summary .desc { font-weight: 700; font-size: 19px; }
+  .weather-summary .sub { color: var(--sub); font-size: 15px; margin-top: 2px; }
+  .metrics { display: flex; gap: 10px; flex-wrap: wrap; }
+  .metric { flex: 1; min-width: 90px; background: var(--bg); border-radius: 10px; padding: 8px 10px; text-align: center; }
+  .metric .v { font-size: 18px; font-weight: 700; }
+  .metric .k { font-size: 13px; color: var(--sub); }
 
-        .hourly-scroll-container { margin-bottom: 30px; }
-        .hourly-header { padding: 0 20px; font-size: 16px; font-weight: 800; color: #495057; margin-bottom: 12px; }
-        .hourly-scroll { display: flex; overflow-x: auto; padding: 0 20px 10px; gap: 20px; }
-        .hourly-scroll::-webkit-scrollbar { display: none; }
-        .hourly-item { display: flex; flex-direction: column; align-items: center; min-width: 40px; }
-        .hourly-time { font-size: 14px; color: #868e96; font-weight: 600; margin-bottom: 8px; }
-        .hourly-icon { font-size: 24px; margin-bottom: 8px; }
-        .hourly-temp { font-size: 16px; font-weight: 700; color: #212529; }
+  .flag-card {
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 14px;
+    border: 2px solid var(--border);
+  }
+  .flag-card.level-severe { border-color: var(--red); background: #fdecea; }
+  .flag-card.level-warn { border-color: var(--amber); background: #fff4e5; }
+  .flag-card.level-info { border-color: var(--blue); background: #eaf1fb; }
+  .flag-card.level-normal { border-color: var(--green); background: #eaf5ea; }
 
-        .weekly-container { padding: 0 20px; }
-        .weekly-header { font-size: 16px; font-weight: 800; color: #495057; margin-bottom: 12px; }
-        .weekly-row { display: flex; align-items: center; justify-content: space-between; padding: 14px 0; border-bottom: 1px solid #f1f3f5; }
-        .weekly-day { width: 60px; font-size: 16px; font-weight: 700; color: #212529; }
-        .weekly-icons { display: flex; gap: 15px; font-size: 20px; }
-        .weekly-temps { display: flex; gap: 12px; font-size: 16px; font-weight: 700; }
-        .temp-min { color: #3b82f6; }
-        .temp-max { color: #e63946; }
-        .text-red { color: #e63946; }
+  .flag-title { display: flex; align-items: center; gap: 10px; font-size: 19px; font-weight: 700; margin-bottom: 4px; }
+  .flag-title .emoji { font-size: 26px; }
+  .flag-desc { color: var(--sub); font-size: 15px; margin: 0 0 12px; }
 
-        /* 하단 내비게이션 바 */
-        .bottom-nav {
-            position: absolute;
-            bottom: 0;
-            width: 100%;
-            display: flex;
-            background-color: #ffffff;
-            border-top: 1px solid #dee2e6;
-            padding: 12px 0 16px;
-            z-index: 10;
-        }
-        .nav-button {
-            flex: 1;
-            text-align: center;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 6px;
-            cursor: pointer;
-        }
-        .nav-icon { font-size: 22px; filter: grayscale(100%); opacity: 0.4; }
-        .nav-label { font-size: 13px; font-weight: 700; color: #adb5bd; }
-        
-        .nav-button.active .nav-icon { filter: grayscale(0%); opacity: 1; }
-        .nav-button.active .nav-label { color: #212529; }
-    </style>
+  ul.actions { list-style: none; margin: 0; padding: 0; }
+  ul.actions li {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 10px 0;
+    border-top: 1px dashed var(--border);
+    font-size: 17px;
+  }
+  ul.actions li:first-child { border-top: none; }
+  ul.actions input[type="checkbox"] {
+    width: 24px; height: 24px; flex: none; margin-top: 2px;
+    accent-color: var(--green);
+  }
+  ul.actions li.checked span { color: var(--sub); text-decoration: line-through; }
+
+  footer { text-align: center; color: var(--sub); font-size: 13px; margin-top: 24px; padding: 0 8px; }
+  footer p { margin: 4px 0; }
+</style>
 </head>
 <body>
+<div class="wrap">
 
-<div class="app-container">
-    <!-- 상단 헤더 공통 -->
-    <div class="top-header">
-        <div class="app-title">농사대박</div>
-        <div class="location">📍 경북 상주시 모동면</div>
+  <header>
+    <h1>🍈 참외 영농지침</h1>
+    <p>날짜를 고르면, 오늘 해야 할 일만 알려드려요</p>
+  </header>
+
+  <div class="panel">
+    <label for="location">지역</label>
+    <select id="location"></select>
+
+    <label for="date">날짜</label>
+    <input type="date" id="date">
+
+    <button class="primary" id="checkBtn">확인하기</button>
+  </div>
+
+  <div id="status">날씨를 확인하고 있어요...</div>
+  <div id="error">
+    <p id="errorMsg"></p>
+    <button class="retry" id="retryBtn">다시 시도</button>
+  </div>
+
+  <div id="result">
+    <div class="panel">
+      <div class="weather-summary">
+        <div class="emoji" id="wxEmoji">☀️</div>
+        <div>
+          <div class="desc" id="wxDesc">-</div>
+          <div class="sub" id="wxDate">-</div>
+        </div>
+      </div>
+      <div class="metrics">
+        <div class="metric"><div class="v" id="mTemp">-</div><div class="k">최저/최고</div></div>
+        <div class="metric"><div class="v" id="mRain">-</div><div class="k">강수량</div></div>
+        <div class="metric"><div class="v" id="mWind">-</div><div class="k">최대풍속</div></div>
+      </div>
     </div>
 
-    <!-- 1. 홈(컨트롤러) 화면 -->
-    <div id="view-home" class="view-section active-view">
-        <!-- 작물 탭 -->
-        <div class="crop-tabs">
-            <div class="tab-item" onclick="switchCrop('persimmon', 0)" id="tab-persimmon">
-                <span>곶감</span>
-            </div>
-            <div class="tab-item active" onclick="switchCrop('melon', 1)" id="tab-melon">
-                <span>참외(하우스)</span>
-            </div>
-            <div class="tab-item" onclick="switchCrop('rice', 2)" id="tab-rice">
-                <span>벼</span>
-            </div>
-            <div class="tab-item" style="color:#868e96;">
-                <span>작물추가</span>
-            </div>
-        </div>
+    <div id="flagCards"></div>
+  </div>
 
-        <!-- 기상 정보 보드 -->
-        <div class="weather-hero">
-            <div class="temp-display">24°C</div>
-            <div class="weather-condition">
-                🌧️ 폭우 및 강풍 | <span style="color: #d32f2f;">순간 풍속 18.5m/s</span>
-            </div>
-        </div>
+  <footer>
+    <p>* 이 지침은 검증 중인 프로토타입이며, 참외 재배에 한해 참고용으로 제공됩니다.</p>
+    <p>* 실제 영농 판단은 반드시 지역 농업기술센터 등 전문기관과 상의하세요.</p>
+    <p>날씨 데이터 제공: Open-Meteo</p>
+  </footer>
 
-        <!-- 핵심 행동 지침 -->
-        <div class="action-card">
-            <div class="alert-badge" id="action-badge">🚨 14:00 태풍 주의보 발령</div>
-            <div class="action-command" id="action-command">
-                강풍 피해 대비<br>하우스 측창을 즉시<br>밀폐하십시오.
-            </div>
-        </div>
-
-        <!-- 오늘의 과제 (토글 함수 연동) -->
-        <div class="todo-section">
-            <div class="section-title">오늘 마감 권장 과제 (8월 12일)</div>
-            
-            <div class="todo-item" onclick="toggleTodo(this)">
-                <div class="checkbox-large"></div>
-                <div class="todo-text" id="todo-1">내일 비 예보. 18시 전 배수로 오물 제거 완료하기</div>
-            </div>
-            
-            <div class="todo-item" onclick="toggleTodo(this)">
-                <div class="checkbox-large"></div>
-                <div class="todo-text" id="todo-2">하우스 고정끈 및 비닐 찢김 구간 긴급 보수</div>
-            </div>
-        </div>
-    </div>
-
-    <!-- 2. 날씨 상세 화면 -->
-    <div id="view-weather" class="view-section">
-        <div class="weather-main-info">
-            <div class="temp">☀️ 36.9°</div>
-            <div class="desc">어제보다 1.1° ↑ / 맑음</div>
-            <div class="details">체감 34.7° • 습도 36% • 북서풍 3.7m/s</div>
-        </div>
-
-        <div class="status-grid">
-            <div class="status-box">
-                <div class="status-title">미세먼지</div>
-                <div class="status-value val-good">좋음</div>
-            </div>
-            <div class="status-box">
-                <div class="status-title">초미세먼지</div>
-                <div class="status-value val-good">좋음</div>
-            </div>
-            <div class="status-box">
-                <div class="status-title">자외선</div>
-                <div class="status-value val-normal">보통</div>
-            </div>
-            <div class="status-box">
-                <div class="status-title">일몰</div>
-                <div class="status-value val-warning">19:29</div>
-            </div>
-        </div>
-
-        <div class="hourly-scroll-container">
-            <div class="hourly-header">시간별 예보</div>
-            <div class="hourly-scroll">
-                <div class="hourly-item">
-                    <div class="hourly-time">17시</div>
-                    <div class="hourly-icon">☀️</div>
-                    <div class="hourly-temp">37°</div>
-                </div>
-                <div class="hourly-item">
-                    <div class="hourly-time">18시</div>
-                    <div class="hourly-icon">☀️</div>
-                    <div class="hourly-temp">36°</div>
-                </div>
-                <div class="hourly-item">
-                    <div class="hourly-time">19시</div>
-                    <div class="hourly-icon">⛅</div>
-                    <div class="hourly-temp">35°</div>
-                </div>
-                <div class="hourly-item">
-                    <div class="hourly-time">20시</div>
-                    <div class="hourly-icon">☁️</div>
-                    <div class="hourly-temp">35°</div>
-                </div>
-                <div class="hourly-item">
-                    <div class="hourly-time">21시</div>
-                    <div class="hourly-icon">☁️</div>
-                    <div class="hourly-temp">34°</div>
-                </div>
-                <div class="hourly-item">
-                    <div class="hourly-time">22시</div>
-                    <div class="hourly-icon">🌙</div>
-                    <div class="hourly-temp">32°</div>
-                </div>
-            </div>
-        </div>
-
-        <div class="weekly-container">
-            <div class="weekly-header">주간 예보</div>
-            <div class="weekly-row">
-                <div class="weekly-day">오늘</div>
-                <div class="weekly-icons">☀️ ☀️</div>
-                <div class="weekly-temps"><span class="temp-min">26°</span> <span class="temp-max">37°</span></div>
-            </div>
-            <div class="weekly-row">
-                <div class="weekly-day text-red">일</div>
-                <div class="weekly-icons">☀️ ☀️</div>
-                <div class="weekly-temps"><span class="temp-min">27°</span> <span class="temp-max">35°</span></div>
-            </div>
-            <div class="weekly-row">
-                <div class="weekly-day">월</div>
-                <div class="weekly-icons">☀️ ☀️</div>
-                <div class="weekly-temps"><span class="temp-min">26°</span> <span class="temp-max">34°</span></div>
-            </div>
-            <div class="weekly-row">
-                <div class="weekly-day">화</div>
-                <div class="weekly-icons">☀️ ⛅</div>
-                <div class="weekly-temps"><span class="temp-min">26°</span> <span class="temp-max">34°</span></div>
-            </div>
-            <div class="weekly-row">
-                <div class="weekly-day">수</div>
-                <div class="weekly-icons">☀️ ☀️</div>
-                <div class="weekly-temps"><span class="temp-min">26°</span> <span class="temp-max">34°</span></div>
-            </div>
-        </div>
-    </div>
-
-    <!-- 하단 내비게이션 -->
-    <div class="bottom-nav">
-        <div class="nav-button active" onclick="switchTab('home', 0)">
-            <div class="nav-icon">🏠</div>
-            <div class="nav-label">홈</div>
-        </div>
-        <div class="nav-button" onclick="switchTab('weather', 1)">
-            <div class="nav-icon">☁️</div>
-            <div class="nav-label">날씨</div>
-        </div>
-        <div class="nav-button" onclick="switchTab('settings', 2)">
-            <div class="nav-icon">⚙️</div>
-            <div class="nav-label">설정</div>
-        </div>
-    </div>
 </div>
 
 <script>
-    // 하단 탭 전환 스크립트
-    function switchTab(targetView, index) {
-        const navButtons = document.querySelectorAll('.nav-button');
-        navButtons.forEach(btn => btn.classList.remove('active'));
-        navButtons[index].classList.add('active');
+const LOCATIONS = [
+  { id: 'seongju',    name: '경북 성주', lat: 35.9192, lon: 128.2833 },
+  { id: 'goryeong',   name: '경북 고령', lat: 35.7263, lon: 128.2629 },
+  { id: 'buyeo',      name: '충남 부여', lat: 36.2757, lon: 126.9099 },
+  { id: 'changnyeong',name: '경남 창녕', lat: 35.5410, lon: 128.4923 },
+];
 
-        const views = document.querySelectorAll('.view-section');
-        views.forEach(view => view.classList.remove('active-view'));
-        
-        if (targetView === 'home') {
-            document.getElementById('view-home').classList.add('active-view');
-        } else if (targetView === 'weather') {
-            document.getElementById('view-weather').classList.add('active-view');
-            document.getElementById('view-weather').scrollTop = 0;
-        }
-    }
+// 기온/강수/풍속 기준은 기상청 특보 기준과 참외 생육 자료를 참고해 단순화한 값입니다.
+// 실제 지역·시기별 기준과 다를 수 있어 프로토타입 검증용으로만 사용하세요.
+const WEATHERCODE_MAP = {
+  0:  ['맑음', '☀️'],
+  1:  ['대체로 맑음', '🌤️'],
+  2:  ['구름 조금', '⛅'],
+  3:  ['흐림', '☁️'],
+  45: ['안개', '🌫️'], 48: ['짙은 안개', '🌫️'],
+  51: ['이슬비', '🌦️'], 53: ['이슬비', '🌦️'], 55: ['강한 이슬비', '🌦️'],
+  56: ['어는 이슬비', '🌧️'], 57: ['어는 이슬비', '🌧️'],
+  61: ['비', '🌧️'], 63: ['비', '🌧️'], 65: ['강한 비', '🌧️'],
+  66: ['어는 비', '🌧️'], 67: ['어는 비', '🌧️'],
+  71: ['눈', '❄️'], 73: ['눈', '❄️'], 75: ['많은 눈', '❄️'], 77: ['싸락눈', '❄️'],
+  80: ['소나기', '🌦️'], 81: ['소나기', '🌦️'], 82: ['강한 소나기', '🌦️'],
+  85: ['눈 소나기', '❄️'], 86: ['눈 소나기', '❄️'],
+  95: ['뇌우', '⛈️'], 96: ['우박 동반 뇌우', '⛈️'], 99: ['우박 동반 뇌우', '⛈️'],
+};
 
-    // 작물별 행동 지침 데이터 베이스
-    const cropData = {
-        'persimmon': {
-            actionBadge: '🚨 14:00 태풍 주의보 발령',
-            actionText: '폭우 및 강풍 대비<br>건조장 비가림막을<br>전면 밀폐하십시오.',
-            todo1: '배수로 주변 토사물 및 잡초 제거 완료하기',
-            todo2: '비닐·버팀줄·골조 고정 점검'
-        },
-        'melon': {
-            actionBadge: '🚨 14:00 태풍 주의보 발령',
-            actionText: '강풍 피해 대비<br>하우스 측창을 즉시<br>밀폐하십시오.',
-            todo1: '내일 비 예보. 18시 전 배수로 오물 제거 완료하기',
-            todo2: '하우스 고정끈 및 비닐 찢김 구간 긴급 보수'
-        },
-        'rice': {
-            actionBadge: '🚨 14:00 폭우 주의보 발령',
-            actionText: '논물 넘침 방지를 위해<br>즉시 배수로를<br>개방하십시오.',
-            todo1: '붕괴 위험 논두렁 비닐 피복 및 톤백 적재',
-            todo2: '침수 상습 구역 양수기 사전 배치 및 테스트'
-        }
-    };
+const FLAG_DEFS = {
+  heat_severe: {
+    emoji: '🔥', level: 'severe', title: '폭염 경고 (낮 최고 35℃ 이상)',
+    desc: '기온이 매우 높아 작물과 사람 모두 위험한 수준이에요.',
+    actions: [
+      '물은 한 번에 많이 주지 말고, 짧게 여러 번 나누어 관수하세요',
+      '오전 11시~오후 5시에는 하우스 안 작업을 피하세요 (온열질환 주의)',
+      '측창·천창을 최대한 열어 환기하고, 필요하면 차광망을 설치하세요',
+      '고랑의 풀은 완전히 없애지 말고 짧게 베어 수분 증발을 줄이세요',
+      '잎이나 열매에 햇볕 데임(일소) 증상이 있는지 수시로 확인하세요',
+    ],
+  },
+  heat: {
+    emoji: '☀️', level: 'warn', title: '폭염 주의 (낮 최고 33℃ 이상)',
+    desc: '더위가 심해지고 있어 물 관리에 신경 써야 해요.',
+    actions: [
+      '관수는 짧게, 자주 나누어 실시하세요',
+      '한낮 시간대 무리한 작업은 피하세요',
+      '하우스 환기창을 충분히 열어 내부 온도를 낮추세요',
+    ],
+  },
+  cold_severe: {
+    emoji: '🥶', level: 'severe', title: '한파 경고 (아침 최저 -12℃ 이하)',
+    desc: '하우스 안 온도가 급격히 떨어질 수 있는 위험한 수준이에요.',
+    actions: [
+      '하우스 야간 최저온도가 12℃ 이상 유지되는지 반드시 확인하세요',
+      '정전·난방기 고장에 대비해 비상 보온자재를 준비하세요 (비상 가온 시 화재 절대 주의)',
+      '환기창과 출입문을 모두 닫아 보온을 유지하세요',
+      '저온 피해(잎이 처지거나 색이 변함)가 보이면 요소 0.3% 액을 잎에 뿌려 회복을 도와주세요',
+    ],
+  },
+  chill: {
+    emoji: '❄️', level: 'warn', title: '저온 주의 (아침 최저 3℃ 이하)',
+    desc: '참외는 저온에 민감한 작물이라 생육 지연이나 냉해가 걱정돼요.',
+    actions: [
+      '하우스 내부 야간 최저온도가 12℃ 아래로 떨어지지 않는지 확인하세요',
+      '보온덮개 등 보온자재를 추가로 덮어주세요',
+      '저온 피해 증상이 보이면 요소 0.3% 액을 잎에 뿌려주세요',
+    ],
+  },
+  storm_wind: {
+    emoji: '🌪️', level: 'severe', title: '태풍급 강풍 경고 (최대풍속 21m/s 이상)',
+    desc: '시설물 파손 위험이 매우 큰 강풍이에요.',
+    actions: [
+      '비닐하우스 고정 끈 상태를 다시 점검하고 느슨한 곳은 보강하세요',
+      '바람이 강하게 부는 동안에는 환기창과 출입문을 닫아두세요',
+      '하우스에 물이 들어왔다면 신속히 배수하고 환풍기를 최대한 가동해 말리세요',
+      '찢어진 비닐이나 부서진 골조는 빠르게 수리해 다음 기상에 대비하세요',
+    ],
+  },
+  strong_wind: {
+    emoji: '💨', level: 'warn', title: '강풍 주의 (최대풍속 14m/s 이상)',
+    desc: '시설 손상에 대비해 미리 점검이 필요해요.',
+    actions: [
+      '비닐하우스 고정 끈과 골조 연결부를 점검하세요',
+      '바람이 강할 때는 환기창과 출입문을 닫아두세요',
+    ],
+  },
+  rain_severe: {
+    emoji: '🌊', level: 'severe', title: '집중호우 경고 (일 강수량 150mm 이상)',
+    desc: '침수 피해가 우려되는 수준의 큰 비예요.',
+    actions: [
+      '배수로가 막히지 않았는지 확인하고 신속히 배수하세요',
+      '하우스에 물이 들어왔다면 오염물을 제거하고 작물 상태를 확인하세요',
+      '부분 침수 시, 이미 달린 참외는 조기에 솎아내 뿌리 회복을 도와주세요',
+      '요소 0.5% 액과 역병 약제를 섞어 잎에 뿌려 회복을 도와주세요',
+      '노균병·역병이 퍼지지 않도록 예방 약제를 살포하고 환기를 최대한 하세요',
+    ],
+  },
+  rain: {
+    emoji: '🌧️', level: 'warn', title: '호우 주의 (일 강수량 80mm 이상)',
+    desc: '배수와 병해 관리에 신경 써야 하는 비예요.',
+    actions: [
+      '배수로 상태를 미리 점검하고 물이 잘 빠지도록 정비하세요',
+      '노균병 등 병해가 퍼지기 쉬우니 잎 상태를 자주 살펴보세요',
+      '비가 그친 뒤에는 환기를 충분히 해 습도를 낮추세요',
+    ],
+  },
+  rain_moderate: {
+    emoji: '🌦️', level: 'info', title: '비 예보 (일 강수량 10mm 이상)',
+    desc: '많은 비는 아니지만 다습한 환경에 유의하세요.',
+    actions: [
+      '하우스 배수로 상태를 한번 확인해두세요',
+      '다습으로 병해가 퍼지지 않는지 잎 상태를 살펴보세요',
+    ],
+  },
+  snow_heavy: {
+    emoji: '🌨️', level: 'severe', title: '많은 눈 (적설 5cm 이상)',
+    desc: '하우스 붕괴 위험이 있으니 주의하세요.',
+    actions: [
+      '지붕에 쌓이는 눈은 그때그때 치워주세요 (붕괴 예방)',
+      '보온덮개를 걷어내거나 비닐을 한 겹 더 씌워 열로 눈을 녹이세요',
+      '보조 지지대를 세워 하우스 구조를 보강하세요',
+    ],
+  },
+  snow_light: {
+    emoji: '🌨️', level: 'info', title: '눈 예보 (적설 1cm 이상)',
+    desc: '남부 지역에서는 흔치 않은 날씨이니 대비해두세요.',
+    actions: [
+      '지붕에 눈이 쌓이지 않는지 수시로 확인하세요',
+      '하우스 내부를 따뜻하게 유지해 눈이 오래 쌓이지 않도록 하세요',
+    ],
+  },
+  normal: {
+    emoji: '🌱', level: 'normal', title: '특이사항 없음',
+    desc: '오늘은 평소처럼 관리하면 되는 날이에요.',
+    actions: [
+      '하우스 내부 온도(주간 26~30℃ / 야간 17~20℃)를 확인하세요',
+      '관수와 환기 상태를 점검하세요',
+      '병해충 발생 여부를 잎 뒷면 위주로 살펴보세요',
+    ],
+  },
+};
 
-    // 체크박스 토글 함수
-    function toggleTodo(element) {
-        const checkbox = element.querySelector('.checkbox-large');
-        const text = element.querySelector('.todo-text');
-        
-        checkbox.classList.toggle('checked');
-        text.classList.toggle('completed');
-    }
+const locationSelect = document.getElementById('location');
+const dateInput = document.getElementById('date');
+const checkBtn = document.getElementById('checkBtn');
+const retryBtn = document.getElementById('retryBtn');
+const statusEl = document.getElementById('status');
+const errorEl = document.getElementById('error');
+const errorMsgEl = document.getElementById('errorMsg');
+const resultEl = document.getElementById('result');
+const flagCardsEl = document.getElementById('flagCards');
 
-    // 상단 작물 탭 클릭 시 내용 변경 스크립트
-    function switchCrop(cropId, index) {
-        // 상단 탭 활성화 상태 변경 (인덱스 0~2까지만 적용)
-        const tabs = document.querySelectorAll('.crop-tabs .tab-item');
-        tabs.forEach((tab, i) => {
-            if (i < 3) tab.classList.remove('active');
-        });
-        tabs[index].classList.add('active');
+LOCATIONS.forEach(loc => {
+  const opt = document.createElement('option');
+  opt.value = loc.id;
+  opt.textContent = loc.name;
+  locationSelect.appendChild(opt);
+});
 
-        // 매칭된 텍스트 데이터 렌더링
-        document.getElementById('action-badge').innerHTML = cropData[cropId].actionBadge;
-        document.getElementById('action-command').innerHTML = cropData[cropId].actionText;
-        document.getElementById('todo-1').innerHTML = cropData[cropId].todo1;
-        document.getElementById('todo-2').innerHTML = cropData[cropId].todo2;
+function todayStr() {
+  const d = new Date();
+  const tz = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
+  return tz.toISOString().slice(0, 10);
+}
+dateInput.value = todayStr();
 
-        // 작물 탭 변경 시 체크박스 상태 초기화 로직
-        const todoItems = document.querySelectorAll('.todo-item');
-        todoItems.forEach(item => {
-            item.querySelector('.checkbox-large').classList.remove('checked');
-            item.querySelector('.todo-text').classList.remove('completed');
-        });
-    }
+class UserError extends Error {}
+
+function computeFlags(w) {
+  const flags = [];
+
+  if (w.tMax >= 35) flags.push('heat_severe');
+  else if (w.tMax >= 33) flags.push('heat');
+
+  if (w.tMin <= -12) flags.push('cold_severe');
+  else if (w.tMin <= 3) flags.push('chill');
+
+  if (w.windMax >= 21) flags.push('storm_wind');
+  else if (w.windMax >= 14) flags.push('strong_wind');
+
+  if (w.precip >= 150) flags.push('rain_severe');
+  else if (w.precip >= 80) flags.push('rain');
+  else if (w.precip >= 10) flags.push('rain_moderate');
+
+  if (w.snow >= 5) flags.push('snow_heavy');
+  else if (w.snow >= 1) flags.push('snow_light');
+
+  if (flags.length === 0) flags.push('normal');
+  return flags;
+}
+
+async function fetchWeather(loc, dateStr) {
+  const today = new Date(todayStr() + 'T00:00:00');
+  const target = new Date(dateStr + 'T00:00:00');
+  const diffDays = Math.round((target - today) / 86400000);
+
+  if (diffDays > 16) {
+    throw new UserError('16일 이후의 먼 미래 날씨는 아직 지원하지 않아요. 더 가까운 날짜를 선택해 주세요.');
+  }
+
+  const base = diffDays < -92
+    ? 'https://archive-api.open-meteo.com/v1/archive'
+    : 'https://api.open-meteo.com/v1/forecast';
+
+  const params = new URLSearchParams({
+    latitude: loc.lat,
+    longitude: loc.lon,
+    timezone: 'Asia/Seoul',
+    daily: 'weathercode,temperature_2m_max,temperature_2m_min,precipitation_sum,windspeed_10m_max,snowfall_sum',
+    start_date: dateStr,
+    end_date: dateStr,
+  });
+
+  let res;
+  try {
+    res = await fetch(`${base}?${params.toString()}`);
+  } catch (e) {
+    throw new UserError('인터넷 연결을 확인해주세요.');
+  }
+  if (!res.ok) throw new UserError('날씨 정보를 불러오지 못했어요. 잠시 후 다시 시도해주세요.');
+
+  const data = await res.json();
+  const daily = data.daily;
+  if (!daily || !daily.time || !daily.time.length || daily.temperature_2m_max[0] == null) {
+    throw new UserError('해당 날짜의 날씨 정보를 아직 찾을 수 없어요.');
+  }
+
+  // Open-Meteo 기본 단위: 기온 ℃, 강수량 mm, 적설 cm, 풍속 km/h → m/s로 변환
+  return {
+    weathercode: daily.weathercode[0],
+    tMax: daily.temperature_2m_max[0],
+    tMin: daily.temperature_2m_min[0],
+    precip: daily.precipitation_sum[0] ?? 0,
+    windMax: (daily.windspeed_10m_max?.[0] ?? 0) / 3.6,
+    snow: daily.snowfall_sum?.[0] ?? 0,
+  };
+}
+
+function checklistKey(locId, dateStr, flagId, idx) {
+  return `cham-oe:${locId}:${dateStr}:${flagId}:${idx}`;
+}
+
+// 일부 브라우저/미리보기 환경(예: data: URL, 시크릿 모드)은 localStorage 접근을 막고 예외를 던짐
+function safeGetItem(key) {
+  try { return localStorage.getItem(key); } catch { return null; }
+}
+function safeSetItem(key, value) {
+  try { localStorage.setItem(key, value); } catch {}
+}
+
+function renderResult(loc, dateStr, w) {
+  const [desc, emoji] = WEATHERCODE_MAP[w.weathercode] || ['-', '❓'];
+  document.getElementById('wxEmoji').textContent = emoji;
+  document.getElementById('wxDesc').textContent = desc;
+  document.getElementById('wxDate').textContent = `${loc.name} · ${dateStr}`;
+  document.getElementById('mTemp').textContent = `${Math.round(w.tMin)}° / ${Math.round(w.tMax)}°`;
+  document.getElementById('mRain').textContent = `${Math.round(w.precip)}mm`;
+  document.getElementById('mWind').textContent = `${w.windMax.toFixed(1)}m/s`;
+
+  const flags = computeFlags(w);
+  const order = { severe: 0, warn: 1, info: 2, normal: 3 };
+  flags.sort((a, b) => order[FLAG_DEFS[a].level] - order[FLAG_DEFS[b].level]);
+
+  flagCardsEl.innerHTML = '';
+  flags.forEach(flagId => {
+    const def = FLAG_DEFS[flagId];
+    const card = document.createElement('div');
+    card.className = `flag-card level-${def.level}`;
+
+    const title = document.createElement('div');
+    title.className = 'flag-title';
+    title.innerHTML = `<span class="emoji">${def.emoji}</span><span>${def.title}</span>`;
+    card.appendChild(title);
+
+    const desc = document.createElement('p');
+    desc.className = 'flag-desc';
+    desc.textContent = def.desc;
+    card.appendChild(desc);
+
+    const ul = document.createElement('ul');
+    ul.className = 'actions';
+    def.actions.forEach((action, idx) => {
+      const key = checklistKey(loc.id, dateStr, flagId, idx);
+      const li = document.createElement('li');
+      const checked = safeGetItem(key) === '1';
+      if (checked) li.classList.add('checked');
+      li.innerHTML = `<input type="checkbox" ${checked ? 'checked' : ''}><span>${action}</span>`;
+      li.querySelector('input').addEventListener('change', (e) => {
+        safeSetItem(key, e.target.checked ? '1' : '0');
+        li.classList.toggle('checked', e.target.checked);
+      });
+      ul.appendChild(li);
+    });
+    card.appendChild(ul);
+    flagCardsEl.appendChild(card);
+  });
+
+  resultEl.style.display = 'block';
+}
+
+async function runCheck() {
+  const loc = LOCATIONS.find(l => l.id === locationSelect.value) || LOCATIONS[0];
+  const dateStr = dateInput.value || todayStr();
+
+  statusEl.style.display = 'block';
+  errorEl.style.display = 'none';
+  resultEl.style.display = 'none';
+  checkBtn.disabled = true;
+
+  try {
+    const w = await fetchWeather(loc, dateStr);
+    renderResult(loc, dateStr, w);
+  } catch (e) {
+    errorMsgEl.textContent = e instanceof UserError ? e.message : '알 수 없는 오류가 발생했어요. 잠시 후 다시 시도해주세요.';
+    errorEl.style.display = 'block';
+  } finally {
+    statusEl.style.display = 'none';
+    checkBtn.disabled = false;
+  }
+}
+
+checkBtn.addEventListener('click', runCheck);
+retryBtn.addEventListener('click', runCheck);
+runCheck();
 </script>
-
 </body>
 </html>
